@@ -436,12 +436,19 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
         return;
     }
 
+    // 1. LINEユーザー情報が取得できていない場合の事前チェック
+    if (!currentUserId) {
+        statusDiv.innerHTML = "❌ LINEのユーザー情報が取得できませんでした。<br><span style='font-size:12px;'>LINEアプリを一度閉じて開き直すか、権限の許可を確認してください。</span>";
+        statusDiv.className = "status error";
+        statusDiv.style.display = "block";
+        return;
+    }
+
     try {
         statusDiv.textContent = "⏳ Discordの情報を確認中...";
         statusDiv.className = "status";
         statusDiv.style.display = "block";
 
-        // 🌟 サーバーにチャンネルIDとユーザーIDを送信する
         const response = await fetch('/api/channels', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -451,7 +458,18 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(result.error || '連携に失敗しました');
+            // 🌟 サーバーから返ってきたエラーコードに応じてメッセージを出し分ける
+            if (result.code === 'BOT_NOT_IN_GUILD') {
+                statusDiv.innerHTML = `❌ DiscordサーバーにBOTが参加していません。<br><a href="${result.inviteUrl}" target="_blank" style="color: #5865F2; font-weight: bold; text-decoration: underline;">👉 BOTをサーバーに招待する</a>`;
+            } else if (result.code === 'FETCH_FAILED') {
+                statusDiv.textContent = "❌ 何らかのエラーで情報が取得できませんでした。";
+            } else if (result.code === 'DISCORD_INTERNAL_ERROR') {
+                statusDiv.textContent = "❌ Discord側でエラーが発生しました。";
+            } else {
+                statusDiv.textContent = `❌ ${result.error || '連携に失敗しました'}`;
+            }
+            statusDiv.className = "status error";
+            return;
         }
 
         statusDiv.innerHTML = `🟢 連携成功！<br>「${result.server}」の「#${result.name}」を追加しました。`;
@@ -462,7 +480,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
         await fetchSavedChannels();
 
     } catch (error) {
-        statusDiv.textContent = "❌ エラーが発生しました: " + error.message;
+        statusDiv.textContent = "❌ 何らかのエラーで情報が取得できませんでした。: " + error.message;
         statusDiv.className = "status error";
     }
 });

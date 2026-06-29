@@ -52,18 +52,25 @@ app.get('/api/channels', (req, res) => {
 });
 
 /**
- * 2. 新しいチャンネルの追加（本物のDiscord情報を取得）
+ * 2. 新しいチャンネルの追加（詳細なエラーハンドリング版）
  */
 app.post('/api/channels', async (req, res) => {
     const { userId, channelId } = req.body;
-    if (!userId || !channelId) return res.status(400).json({ error: 'データが不足しています' });
+    
+    // LINEのユーザー情報がない場合
+    if (!userId) {
+        return res.status(400).json({ code: 'LINE_USER_NOT_FOUND', error: 'LINEのユーザー情報が取得できませんでした。' });
+    }
+    if (!channelId) {
+        return res.status(400).json({ error: 'チャンネルIDが不足しています' });
+    }
 
     try {
         // 🌟 Discord Botを使って、本物のチャンネル情報を取得する
         const channel = await discordClient.channels.fetch(channelId);
         
         if (!channel) {
-            return res.status(404).json({ error: 'チャンネルが見つかりませんでした。Botがそのサーバーにいるか確認してください。' });
+            return res.status(404).json({ code: 'FETCH_FAILED', error: '何らかのエラーで情報が取得できませんでした。' });
         }
 
         const channelName = channel.name;
@@ -93,8 +100,29 @@ app.post('/api/channels', async (req, res) => {
         res.json(newChannel);
 
     } catch (error) {
-        console.error('Discordチャンネル取得エラー:', error);
-        res.status(500).json({ error: 'Discord情報の取得に失敗しました。IDが正しいか、Botがサーバーに導入されているか確認してください。' });
+        console.error('Discordチャンネル取得エラーの詳細:', error);
+
+        // 🌟 Discord APIの特定のエラーコードを判別
+        // 10003: Unknown Channel (IDがそもそも間違っている)
+        // 50001: Missing Access (Botがそのサーバーに参加していない、または権限がない)
+        if (error.code === 50001 || error.status === 403) {
+            // あなたのBotの招待URL（URLは自動生成されますが、必要に応じて環境変数化してください）
+            const botId = discordClient.user.id;
+            const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${botId}&permissions=2048&scope=bot`;
+            
+            return res.status(403).json({ 
+                code: 'BOT_NOT_IN_GUILD', 
+                error: 'DiscordサーバーにBOTが参加していません。',
+                inviteUrl: inviteUrl 
+            });
+        }
+
+        if (error.code === 10003 || error.status === 404) {
+            return res.status(404).json({ code: 'FETCH_FAILED', error: '何らかのエラーで情報が取得できませんでした。（チャンネルが見つかりません）' });
+        }
+
+        // その他のDiscord側システムエラー
+        res.status(500).json({ code: 'DISCORD_INTERNAL_ERROR', error: 'Discord側でエラーが発生しました。' });
     }
 });
 
