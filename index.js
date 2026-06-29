@@ -1,24 +1,27 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
 const { Client, GatewayIntentBits } = require('discord.js');
+
+// 🌟 dotenvの設定（Render上の環境変数を最優先にする）
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==========================================
-// 💾 一時的なデータ保存用の変数（簡易データベース）
-// ==========================================
-// 構造: { 'LINEユーザーID': [ { id: 'チャンネルID', name: '部屋名', server: '鯖名', active: true } ] }
+// 💾 一時的なデータ保存用の変数
 const userSettings = {};
 
 // ==========================================
-// 🤖 各種設定・クライアント初期化
+// 🤖 各種設定・クライアント初期化（エラー回避強化版）
 // ==========================================
 const lineConfig = {
-    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-    channelSecret: process.env.LINE_CHANNEL_SECRET
+    // 🌟 念のため、文字前後の目に見えない空白や改行を強制排除する trim() を追加！
+    channelAccessToken: (process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim(),
+    channelSecret: (process.env.LINE_CHANNEL_SECRET || '').trim()
 };
+
+// 【デバッグ用ログ】起動時に、環境変数がちゃんとRenderから読めているか文字数だけチェック
+console.log(`[LINE Config Check] Secret文字数: ${lineConfig.channelSecret.length}, Token文字数: ${lineConfig.channelAccessToken.length}`);
 
 const lineClient = new line.Client(lineConfig);
 
