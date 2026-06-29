@@ -15,61 +15,47 @@ const lineConfig = {
     channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 
+// DiscordからLINEに送るためのLINEクライアントを作成
+const lineClient = new line.Client(lineConfig);
+
+// ★さっき取得したLINEのユーザーIDをここに貼り付けます
+const LINE_TARGET_ID = 'U3a5b0d0b91a0ca6be3170c6933ffdcc5';
+
 // ==========================================
-// 1. Render維持用の簡易サーバー設定
+// 1. Render維持用の簡易サーバー設定 / LINE受信
 // ==========================================
 app.get('/', (req, res) => {
     res.send('Botは正常に起動しています！');
 });
 
-// LINEのWebhook受取口（中身を作り込みました！）
-// line.middleware を挟むことで、LINEからの正規のアクセスかを自動チェックします
 app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
     try {
         const events = req.body.events;
-        
-        // 送られてきたイベント（メッセージなど）を1つずつ処理
         for (let event of events) {
-            // テキストメッセージ以外は一旦スルー
             if (event.type !== 'message' || event.message.type !== 'text') {
                 continue;
             }
 
-            // LINEの送信者名を取得（グループ名やユーザー名）
             let senderName = 'LINEユーザー';
             try {
-                const profile = await line.Client(lineConfig).getProfile(event.source.userId);
+                const profile = await lineClient.getProfile(event.source.userId);
                 senderName = profile.displayName;
             } catch (err) {
-                console.log('プロフィール取得に失敗（グループ・複数人トークの場合は取得できません）');
+                // 取得失敗時はデフォルト名
             }
 
-            // ★★★ ここを追加！ ★★★
-            // ログに宛先IDを強制的に表示させる
-            console.log('--- LINEの宛先データ ---');
-            console.log(JSON.stringify(event.source, null, 2));
-            console.log('------------------------');
-
-            // LINEのメッセージ本文
             const lineMessage = event.message.text;
             console.log(`[LINE] ${senderName}: ${lineMessage}`);
 
-            // ==========================================
-            // 【重要】Discordへ転送する処理
-            // ==========================================
-            // ⚠️ここに転送したいDiscordのチャンネルIDを貼り付けてください！
-            const DISCORD_CHANNEL_ID = '1300124811896422443'; 
+            // ⚠️ あなたのDiscordのチャンネルIDを入れてください
+            const DISCORD_CHANNEL_ID = 'ここにDiscordのチャンネルIDを貼り付け'; 
 
             const channel = await discordClient.channels.fetch(DISCORD_CHANNEL_ID);
             if (channel) {
-                // Discordに「誰からどんなメッセージが来たか」を送信
                 await channel.send(`**[LINE] ${senderName}**: ${lineMessage}`);
             }
         }
-
-        // LINE側に正常に受け取ったことを伝える（200 OK）
         res.sendStatus(200);
-
     } catch (error) {
         console.error('Webhookエラー:', error);
         res.status(500).end();
@@ -81,7 +67,7 @@ app.listen(PORT, () => {
 });
 
 // ==========================================
-// 2. Discord Botの設定
+// 2. Discord Botの設定（送信処理を追加！）
 // ==========================================
 const discordClient = new Client({
     intents: [
@@ -95,14 +81,33 @@ discordClient.once('ready', () => {
     console.log(`Logged in as ${discordClient.user.tag}!`);
 });
 
-// Discordでメッセージを受け取った時のテスト処理
+// Discordでメッセージを受け取った時の処理
 discordClient.on('messageCreate', async (message) => {
+    // Bot自身の発言は無限ループになるので絶対に無視
     if (message.author.bot) return;
+
+    // ⚠️ あなたのDiscordのチャンネルIDを入れてください
+    // （このチャンネルでの発言だけをLINEに転送します）
+    const DISCORD_CHANNEL_ID = 'ここにDiscordのチャンネルIDを貼り付け'; 
+
+    // 指定したチャンネル以外での発言なら無視
+    if (message.channel.id !== DISCORD_CHANNEL_ID) return;
 
     console.log(`[Discord] ${message.author.username}: ${message.content}`);
     
-    if (message.content === 'ピン') {
-        message.reply('ポン！');
+    try {
+        // LINEに送るメッセージの組み立て
+        const textMessage = {
+            type: 'text',
+            text: `[Discord] ${message.author.username}: ${message.content}`
+        };
+
+        // LINEにメッセージを送信！
+        await lineClient.pushMessage(LINE_TARGET_ID, textMessage);
+        console.log('LINEへの転送に成功しました！');
+
+    } catch (error) {
+        console.error('LINEへの送信エラー:', error);
     }
 });
 
