@@ -293,10 +293,8 @@ hr {
         min-width: 80px;
     }
 }
-
     </style>
-    <!-- LINE LIFFの公式SDK（これを入れることでLINEと通信できる） -->
-    <script src="https://static.line-scdn.net/liff/edge/2/sd.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
 
@@ -312,8 +310,8 @@ hr {
     
     <div id="statusMessage" class="status"></div>
     <div id="saved-channels">
-    	<hr>
-    	<label>保存されたチャンネル</label>
+        <hr>
+        <label>保存されたチャンネル</label>
         <div id="channel-container">
         
         </div>
@@ -321,28 +319,44 @@ hr {
 </div>
 <script>
 const MY_LIFF_ID = '2010550068-eJKd4noc'; 
-let currentUserId = null; // ログインしたLINEユーザーのIDを保持する変数
+let currentUserId = null;
 
 /**
- * 起動時に自動でLIFFを初期化する
+ * 起動時に自動でLIFFを初期化する（エラー可視化版）
  */
 async function initializeLiff() {
+    const statusDiv = document.getElementById('statusMessage');
+    statusDiv.style.display = "block";
+    statusDiv.className = "status";
+    statusDiv.innerHTML = "⏳ LINEログインの初期化中...";
+
     try {
+        // SDKが読み込めているかチェック
+        if (typeof liff === 'undefined') {
+            throw new Error("LINEの通信パーツ(SDK)が読み込めていません。URLを確認してください。");
+        }
+
         await liff.init({ liffId: MY_LIFF_ID });
+        
         if (!liff.isLoggedIn()) {
             liff.login();
-        } else {
-            console.log("LIFF 初期化成功！");
-            
-            // LINEのユーザー情報を取得
-            const profile = await liff.getProfile();
-            currentUserId = profile.userId;
-
-            // 🌟 サーバーから、このユーザーが保存している本物のチャンネル一覧を取得して描画
-            await fetchSavedChannels();
+            return;
         }
+        
+        // LINEのユーザー情報を取得
+        const profile = await liff.getProfile();
+        currentUserId = profile.userId;
+
+        // 初期化がすべて成功したら案内メッセージを消す（または初期表示にする）
+        statusDiv.style.display = "none";
+
+        // サーバーから、このユーザーが保存している本物のチャンネル一覧を取得して描画
+        await fetchSavedChannels();
+
     } catch (error) {
         console.error("LIFFの初期化に失敗:", error);
+        statusDiv.className = "status error";
+        statusDiv.innerHTML = `❌ 初期化エラーが発生しました。<br><span style="font-size:12px;">理由: ${error.message}</span>`;
     }
 }
 
@@ -351,7 +365,6 @@ async function initializeLiff() {
  */
 async function fetchSavedChannels() {
     try {
-        // サーバーの「/api/channels?userId=xxxx」にデータをあげる
         const response = await fetch(`/api/channels?userId=${currentUserId}`);
         if (!response.ok) throw new Error('一覧の取得に失敗しました');
         
@@ -458,7 +471,6 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
         const result = await response.json();
 
         if (!response.ok) {
-            // 🌟 サーバーから返ってきたエラーコードに応じてメッセージを出し分ける
             if (result.code === 'BOT_NOT_IN_GUILD') {
                 statusDiv.innerHTML = `❌ DiscordサーバーにBOTが参加していません。<br><a href="${result.inviteUrl}" target="_blank" style="color: #5865F2; font-weight: bold; text-decoration: underline;">👉 BOTをサーバーに招待する</a>`;
             } else if (result.code === 'FETCH_FAILED') {
@@ -474,9 +486,8 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
 
         statusDiv.innerHTML = `🟢 連携成功！<br>「${result.server}」の「#${result.name}」を追加しました。`;
         statusDiv.className = "status success";
-        document.getElementById('channelId').value = ''; // 入力欄をクリア
+        document.getElementById('channelId').value = ''; 
 
-        // 一覧を再リロード
         await fetchSavedChannels();
 
     } catch (error) {
@@ -516,7 +527,6 @@ async function deleteChannelItem(buttonElement, channelId) {
             if (response.ok) {
                 const item = buttonElement.closest('.channel-item');
                 item.remove();
-                // 1件もなくなったら文字を出すために再描画
                 await fetchSavedChannels();
             }
         } catch (error) {
