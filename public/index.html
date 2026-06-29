@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord連携設定</title>
+    <!-- 綺麗に見せるためのCSS（スタイリング） -->
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #5865F2; /* Discordパープル */
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus {
+            border-color: #5865F2;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #5865F2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #4752C4;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+        .success { background-color: #e6f4ea; color: #137333; display: block; }
+        .error { background-color: #fce8e6; color: #c5221f; display: block; }
+    </style>
+    <!-- LINE LIFFの公式SDK（これを入れることでLINEと通信できる） -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <h2>Discord 連携設定</h2>
+    
+    <div class="form-group">
+        <label for="channelId">Discord チャンネルID</label>
+        <input type="text" id="channelId" placeholder="18桁または19桁の数字を入力">
+    </div>
+    
+    <button id="saveBtn">連携を実行する</button>
+    
+    <div id="statusMessage" class="status"></div>
+</div>
+
+<script>
+    // 1. あなたのLIFF ID（URLの末尾の「2010550068-xxxxxx」の部分）に書き換えてください！
+    const MY_LIFF_ID = '2010550068-eJKd4noc'; 
+
+    // 画面が開いたら自動でLIFFを初期化
+    async function initializeLiff() {
+        try {
+            await liff.init({ liffId: MY_LIFF_ID });
+            if (!liff.isLoggedIn()) {
+                // LINEアプリ以外（ブラウザなど）で開かれた場合はログインさせる
+                liff.login();
+            } else {
+                console.log("LIFF 初期化成功！");
+            }
+        } catch (error) {
+            console.error("LIFFの初期化に失敗:", error);
+        }
+    }
+
+    // 保存ボタンを押したときの処理
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const channelId = document.getElementById('channelId').value.trim();
+        const statusDiv = document.getElementById('statusMessage');
+        
+        if (!channelId) {
+            statusDiv.textContent = "❌ チャンネルIDを入力してください。";
+            statusDiv.className = "status error";
+            return;
+        }
+
+        try {
+            // LINEのユーザー情報を取得（誰が設定しているか特定するため）
+            const profile = await liff.getProfile();
+            const userId = profile.userId;
+
+            statusDiv.textContent = "⏳ Discordの情報を確認中...";
+            statusDiv.className = "status";
+            statusDiv.style.display = "block";
+
+            // 💡 ここで、あとでRender側のサーバー（Node.js）に「このチャンネルID使える？」と送る処理を書きます
+            // 今は一旦、画面上だけで「成功」と出しておきます
+            setTimeout(() => {
+                statusDiv.innerHTML = `🟢 連携成功！<br>ユーザーID: ${userId}<br>設定したチャンネル: ${channelId}`;
+                statusDiv.className = "status success";
+            }, 1500);
+
+        } catch (error) {
+            statusDiv.textContent = "❌ エラーが発生しました: " + error.message;
+            statusDiv.className = "status error";
+        }
+    });
+
+    // 起動
+    initializeLiff();
+</script>
+
+</body>
+</html>

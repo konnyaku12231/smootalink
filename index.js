@@ -18,11 +18,16 @@ const lineConfig = {
 // DiscordからLINEに送るためのLINEクライアントを作成
 const lineClient = new line.Client(lineConfig);
 
+app.use(express.json());
+
 const LINE_TARGET_ID = process.env.LINE_TARGET_ID;
 
 // ==========================================
 // 1. Render維持用の簡易サーバー設定 / LINE受信
 // ==========================================
+
+app.use(express.static('public'));
+
 app.get('/', (req, res) => {
     res.send('Botは正常に起動しています！');
 });
