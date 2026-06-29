@@ -4,148 +4,511 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord連携設定</title>
-    <!-- 綺麗に見せるためのCSS（スタイリング） -->
     <style>
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f4f7f6;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-        h2 {
-            text-align: center;
-            color: #5865F2; /* Discordパープル */
-            margin-bottom: 24px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            box-sizing: border-box;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        input[type="text"]:focus {
-            border-color: #5865F2;
-            outline: none;
-        }
-        button {
-            width: 100%;
-            padding: 14px;
-            background-color: #5865F2;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #4752C4;
-        }
-        .status {
-            margin-top: 20px;
-            padding: 12px;
-            border-radius: 6px;
-            text-align: center;
-            font-size: 14px;
-            display: none;
-        }
-        .success { background-color: #e6f4ea; color: #137333; display: block; }
-        .error { background-color: #fce8e6; color: #c5221f; display: block; }
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f5f6f8;
+    margin: 0;
+    padding: 20px;
+    color: #333;
+}
+
+.container {
+    max-width: 700px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 30px;
+    box-sizing: border-box;
+}
+
+h2 {
+    color: #5865F2;
+    margin-bottom: 24px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+    border: 2px solid #e0e0e0;
+    font-size: 16px;
+    transition: .2s;
+}
+
+input[type="text"]:focus {
+    border-color: #5865F2;
+    outline: none;
+}
+
+button {
+    width: 100%;
+    padding: 14px;
+    background: #fff;
+    color: #5865F2;
+    border: 2px solid #5865F2;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .2s;
+}
+
+button:hover {
+    background: #5865F2;
+    color: #fff;
+}
+
+.status {
+    margin-top: 20px;
+    padding: 12px;
+    text-align: center;
+    font-size: 14px;
+    display: none;
+}
+
+.success {
+    background: #e6f4ea;
+    color: #137333;
+    display: block;
+}
+
+.error {
+    background: #fce8e6;
+    color: #c5221f;
+    display: block;
+}
+
+hr {
+    margin: 0 0 20px;
+    background: #ddd;
+    height: 1px;
+    border: none;
+}
+
+#saved-channels {
+    margin-top: 30px;
+}
+
+/* ============================= */
+/* 保存済みチャンネル一覧 */
+/* ============================= */
+
+#channel-container {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+}
+
+.channel-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    padding: 18px;
+    border-bottom: 1px solid #ececec;
+    transition: .2s;
+}
+
+.channel-item:last-child {
+    border-bottom: none;
+}
+
+.channel-item:hover {
+    background: #fafafa;
+}
+
+/* 左側 */
+
+.channel-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.channel-main-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.channel-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.server-name {
+    font-size: 13px;
+    color: #777;
+}
+
+.channel-id-box {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.channel-id {
+    font-family: monospace;
+    font-size: 13px;
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+    padding: 4px 8px;
+    color: #555;
+}
+
+.channel-id.masked {
+    color: #999;
+    letter-spacing: 3px;
+}
+
+.btn-toggle-id {
+    width: auto;
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #666;
+}
+
+.btn-toggle-id:hover {
+    background: #f3f3f3;
+    color: #333;
+}
+
+/* 右側 */
+
+.channel-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+}
+
+.switch-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.switch-input {
+    display: none;
+}
+
+.switch-wrapper {
+    width: 48px;
+    height: 26px;
+    background: #d8d8d8;
+    border-radius: 999px;
+    position: relative;
+    transition: .2s;
+}
+
+.switch-knob {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: .2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+.switch-input:checked + .switch-wrapper {
+    background: #5865F2;
+}
+
+.switch-input:checked + .switch-wrapper .switch-knob {
+    transform: translateX(22px);
+}
+
+.btn-delete {
+    width: auto;
+    padding: 8px 14px;
+    background: white;
+    color: #e53935;
+    border: 1px solid #e0e0e0;
+    font-size: 13px;
+}
+
+.btn-delete:hover {
+    background: #e53935;
+    border-color: #e53935;
+    color: white;
+}
+
+/* ============================= */
+/* スマホ対応 */
+/* ============================= */
+
+@media (max-width: 700px) {
+
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 20px;
+    }
+
+    .channel-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+    }
+
+    .channel-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .channel-name {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .channel-id-box {
+        flex-wrap: wrap;
+    }
+
+    .btn-delete {
+        min-width: 80px;
+    }
+}
+
     </style>
     <!-- LINE LIFFの公式SDK（これを入れることでLINEと通信できる） -->
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sd.js"></script>
 </head>
 <body>
 
 <div class="container">
-    <h2>Discord 連携設定</h2>
-    
+    <h2>smootalink 連携設定</h2>
+    <hr>
     <div class="form-group">
         <label for="channelId">Discord チャンネルID</label>
         <input type="text" id="channelId" placeholder="18桁または19桁の数字を入力">
     </div>
     
-    <button id="saveBtn">連携を実行する</button>
+    <button id="saveBtn">保存・適用する</button>
     
     <div id="statusMessage" class="status"></div>
+    <div id="saved-channels">
+    	<hr>
+    	<label>保存されたチャンネル</label>
+        <div id="channel-container">
+        
+        </div>
+    </div>
 </div>
-
 <script>
-    // 1. あなたのLIFF ID（URLの末尾の「2010550068-xxxxxx」の部分）に書き換えてください！
-    const MY_LIFF_ID = '2010550068-eJKd4noc'; 
+const MY_LIFF_ID = '2010550068-eJKd4noc'; 
+let currentUserId = null; // ログインしたLINEユーザーのIDを保持する変数
 
-    // 画面が開いたら自動でLIFFを初期化
-    async function initializeLiff() {
-        try {
-            await liff.init({ liffId: MY_LIFF_ID });
-            if (!liff.isLoggedIn()) {
-                // LINEアプリ以外（ブラウザなど）で開かれた場合はログインさせる
-                liff.login();
-            } else {
-                console.log("LIFF 初期化成功！");
-            }
-        } catch (error) {
-            console.error("LIFFの初期化に失敗:", error);
+/**
+ * 起動時に自動でLIFFを初期化する
+ */
+async function initializeLiff() {
+    try {
+        await liff.init({ liffId: MY_LIFF_ID });
+        if (!liff.isLoggedIn()) {
+            liff.login();
+        } else {
+            console.log("LIFF 初期化成功！");
+            
+            // LINEのユーザー情報を取得
+            const profile = await liff.getProfile();
+            currentUserId = profile.userId;
+
+            // 🌟 サーバーから、このユーザーが保存している本物のチャンネル一覧を取得して描画
+            await fetchSavedChannels();
         }
+    } catch (error) {
+        console.error("LIFFの初期化に失敗:", error);
+    }
+}
+
+/**
+ * 🌟 サーバーから保存済みチャンネル一覧を取得する
+ */
+async function fetchSavedChannels() {
+    try {
+        // サーバーの「/api/channels?userId=xxxx」にデータをあげる
+        const response = await fetch(`/api/channels?userId=${currentUserId}`);
+        if (!response.ok) throw new Error('一覧の取得に失敗しました');
+        
+        const channels = await response.json();
+        renderChannels(channels);
+    } catch (error) {
+        console.error("チャンネル一覧取得エラー:", error);
+    }
+}
+
+/**
+ * チャンネル一覧を生成してコンテナに描画する関数
+ */
+function renderChannels(channels) {
+    const container = document.getElementById('channel-container');
+    container.innerHTML = ''; 
+
+    if (channels.length === 0) {
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999; font-size: 14px;">連携済みのチャンネルはありません</div>';
+        return;
     }
 
-    // 保存ボタンを押したときの処理
-    document.getElementById('saveBtn').addEventListener('click', async () => {
-        const channelId = document.getElementById('channelId').value.trim();
-        const statusDiv = document.getElementById('statusMessage');
-        
-        if (!channelId) {
-            statusDiv.textContent = "❌ チャンネルIDを入力してください。";
-            statusDiv.className = "status error";
-            return;
-        }
+    channels.forEach((ch, index) => {
+        const item = document.createElement('div');
+        item.className = 'channel-item';
+        item.setAttribute('data-id', ch.id);
 
-        try {
-            // LINEのユーザー情報を取得（誰が設定しているか特定するため）
-            const profile = await liff.getProfile();
-            const userId = profile.userId;
-
-            statusDiv.textContent = "⏳ Discordの情報を確認中...";
-            statusDiv.className = "status";
-            statusDiv.style.display = "block";
-
-            // 💡 ここで、あとでRender側のサーバー（Node.js）に「このチャンネルID使える？」と送る処理を書きます
-            // 今は一旦、画面上だけで「成功」と出しておきます
-            setTimeout(() => {
-                statusDiv.innerHTML = `🟢 連携成功！<br>ユーザーID: ${userId}<br>設定したチャンネル: ${channelId}`;
-                statusDiv.className = "status success";
-            }, 1500);
-
-        } catch (error) {
-            statusDiv.textContent = "❌ エラーが発生しました: " + error.message;
-            statusDiv.className = "status error";
-        }
+        item.innerHTML = `
+          <div class="channel-info">
+            <div class="channel-main-info">
+              <span class="channel-name"># ${ch.name}</span>
+              <span class="server-name">@ ${ch.server}</span>
+            </div>
+            <div class="channel-id-box">
+              ID:<span class="channel-id masked" id="id-text-${index}">••••••••••••••••••</span>
+              <button class="btn-toggle-id" onclick="toggleIdDisplay(${index}, '${ch.id}')" id="id-btn-${index}">表示</button>
+            </div>
+          </div>
+          <div class="channel-actions">
+            <label class="switch-label">
+              <input type="checkbox" class="switch-input" ${ch.active ? 'checked' : ''} onchange="toggleChannelActive('${ch.id}', this.checked)">
+              <div class="switch-wrapper">
+                <div class="switch-knob"></div>
+              </div>
+            </label>
+            <button class="btn-delete" onclick="deleteChannelItem(this, '${ch.id}')">削除</button>
+          </div>
+        `;
+        container.appendChild(item);
     });
+}
 
-    // 起動
-    initializeLiff();
+/**
+ * IDの表示/非表示を切り替える関数
+ */
+function toggleIdDisplay(index, rawId) {
+    const idTextNode = document.getElementById(`id-text-${index}`);
+    const idBtnNode = document.getElementById(`id-btn-${index}`);
+
+    if (idTextNode.classList.contains('masked')) {
+        idTextNode.innerText = rawId;
+        idTextNode.classList.remove('masked');
+        idBtnNode.innerText = '隠す';
+    } else {
+        idTextNode.innerText = '••••••••••••••••••';
+        idTextNode.classList.add('masked');
+        idBtnNode.innerText = '表示';
+    }
+}
+
+/**
+ * 🌟 新規保存ボタンを押したときの処理
+ */
+document.getElementById('saveBtn').addEventListener('click', async () => {
+    const channelId = document.getElementById('channelId').value.trim();
+    const statusDiv = document.getElementById('statusMessage');
+    
+    if (!channelId) {
+        statusDiv.textContent = "❌ チャンネルIDを入力してください。";
+        statusDiv.className = "status error";
+        statusDiv.style.display = "block";
+        return;
+    }
+
+    try {
+        statusDiv.textContent = "⏳ Discordの情報を確認中...";
+        statusDiv.className = "status";
+        statusDiv.style.display = "block";
+
+        // 🌟 サーバーにチャンネルIDとユーザーIDを送信する
+        const response = await fetch('/api/channels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUserId, channelId: channelId })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || '連携に失敗しました');
+        }
+
+        statusDiv.innerHTML = `🟢 連携成功！<br>「${result.server}」の「#${result.name}」を追加しました。`;
+        statusDiv.className = "status success";
+        document.getElementById('channelId').value = ''; // 入力欄をクリア
+
+        // 一覧を再リロード
+        await fetchSavedChannels();
+
+    } catch (error) {
+        statusDiv.textContent = "❌ エラーが発生しました: " + error.message;
+        statusDiv.className = "status error";
+    }
+});
+
+/**
+ * 🌟 有効化切り替え時のイベントハンドラ
+ */
+async function toggleChannelActive(channelId, isChecked) {
+    try {
+        await fetch('/api/channels/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUserId, channelId: channelId, active: isChecked })
+        });
+        console.log(`状態変更成功: ${channelId} -> ${isChecked}`);
+    } catch (error) {
+        console.error("有効化切り替えエラー:", error);
+    }
+}
+
+/**
+ * 🌟 項目を削除する関数
+ */
+async function deleteChannelItem(buttonElement, channelId) {
+    if (confirm('このチャンネル設定を削除してもよろしいですか？')) {
+        try {
+            const response = await fetch('/api/channels/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUserId, channelId: channelId })
+            });
+            
+            if (response.ok) {
+                const item = buttonElement.closest('.channel-item');
+                item.remove();
+                // 1件もなくなったら文字を出すために再描画
+                await fetchSavedChannels();
+            }
+        } catch (error) {
+            console.error("削除エラー:", error);
+        }
+    }
+}
+
+// 起動
+initializeLiff();
 </script>
 
 </body>
