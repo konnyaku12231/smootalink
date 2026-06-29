@@ -18,8 +18,7 @@ const lineConfig = {
 // DiscordからLINEに送るためのLINEクライアントを作成
 const lineClient = new line.Client(lineConfig);
 
-// ★さっき取得したLINEのユーザーIDをここに貼り付けます
-const LINE_TARGET_ID = 'U3a5b0d0b91a0ca6be3170c6933ffdcc5';
+const LINE_TARGET_ID = process.env.LINE_TARGET_ID;
 
 // ==========================================
 // 1. Render維持用の簡易サーバー設定 / LINE受信
@@ -48,7 +47,7 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
             console.log(`[LINE] ${senderName}: ${lineMessage}`);
 
             // ⚠️ あなたのDiscordのチャンネルIDを入れてください
-            const DISCORD_CHANNEL_ID = 'ここにDiscordのチャンネルIDを貼り付け'; 
+            const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
             const channel = await discordClient.channels.fetch(DISCORD_CHANNEL_ID);
             if (channel) {
@@ -88,7 +87,7 @@ discordClient.on('messageCreate', async (message) => {
 
     // ⚠️ あなたのDiscordのチャンネルIDを入れてください
     // （このチャンネルでの発言だけをLINEに転送します）
-    const DISCORD_CHANNEL_ID = 'ここにDiscordのチャンネルIDを貼り付け'; 
+    const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
     // 指定したチャンネル以外での発言なら無視
     if (message.channel.id !== DISCORD_CHANNEL_ID) return;
