@@ -44,6 +44,12 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
                 console.log('プロフィール取得に失敗（グループ・複数人トークの場合は取得できません）');
             }
 
+            // ★★★ ここを追加！ ★★★
+            // ログに宛先IDを強制的に表示させる
+            console.log('--- LINEの宛先データ ---');
+            console.log(JSON.stringify(event.source, null, 2));
+            console.log('------------------------');
+
             // LINEのメッセージ本文
             const lineMessage = event.message.text;
             console.log(`[LINE] ${senderName}: ${lineMessage}`);
