@@ -15,7 +15,6 @@ const userSettings = {};
 // 🤖 各種設定・クライアント初期化（エラー回避強化版）
 // ==========================================
 const lineConfig = {
-    // 🌟 念のため、文字前後の目に見えない空白や改行を強制排除する trim() を追加！
     channelAccessToken: (process.env.LINE_CHANNEL_ACCESS_TOKEN || '').trim(),
     channelSecret: (process.env.LINE_CHANNEL_SECRET || '').trim()
 };
@@ -33,10 +32,65 @@ const discordClient = new Client({
     ]
 });
 
-// フロントからのJSONを受け取れるようにする設定
+
+// ==========================================
+// 📨 メッセージ転送ロジック（順番が命！）
+// ==========================================
+
+// 🌟【最優先】LINE ➔ Discord の転送（express.json() より上に書くことで署名エラーを完全回避！）
+app.post('/webhook', line.middleware(lineConfig), (req, res) => {
+    // LINEの検証ボタン用：イベントが空っぽなら何もせず200を返す
+    if (!req.body.events || req.body.events.length === 0) {
+        return res.json({ status: 'ok' });
+    }
+
+    Promise.all(req.body.events.map(async (event) => {
+        if (event.type !== 'message' || event.message.type !== 'text') return null;
+
+        const userId = event.source.userId;
+        const userMessage = event.message.text;
+
+        // メッセージが空、または検証用のダミーデータなら処理をスキップ
+        if (!userMessage) return null;
+
+        let userName = 'LINEユーザー';
+        try {
+            const profile = await lineClient.getProfile(userId);
+            userName = profile.displayName;
+        } catch (e) { console.log('名前取得失敗'); }
+
+        const channels = userSettings[userId] || [];
+        const activeChannels = channels.filter(ch => ch.active);
+
+        if (activeChannels.length === 0) {
+            // デフォルトのチャンネルIDがあり、メッセージが存在する場合のみ送る
+            if (process.env.DISCORD_CHANNEL_ID && userMessage) {
+                try {
+                    const defaultChannel = await discordClient.channels.fetch(process.env.DISCORD_CHANNEL_ID);
+                    if (defaultChannel) await defaultChannel.send(`🟩 **${userName}**: ${userMessage}`);
+                } catch (err) { console.log('デフォルト転送失敗'); }
+            }
+        } else {
+            for (const ch of activeChannels) {
+                try {
+                    const discordChannel = await discordClient.channels.fetch(ch.id);
+                    if (discordChannel) await discordChannel.send(`🟩 **${ch.name}**: ${userMessage}`);
+                } catch (err) { console.log(`チャンネル ${ch.id} への送信失敗`); }
+            }
+        }
+    }))
+    .then(() => res.json({ status: 'ok' }))
+    .catch((err) => {
+        console.error('Webhook内部エラー:', err);
+        res.status(500).end();
+    });
+});
+
+
+// 🌟【LINE Webhookの後に記述】ここでJSONパース設定を読み込ませる！
 app.use(express.json());
-// publicフォルダ（HTML）を公開する設定
 app.use(express.static('public'));
+
 
 // ==========================================
 // 🌐 LIFF（画面）用の API エンドポイント
@@ -49,18 +103,16 @@ app.get('/api/channels', (req, res) => {
     const userId = req.query.userId;
     if (!userId) return res.status(400).json({ error: 'userIdが必要です' });
 
-    // このユーザーのデータがなければ空配列を返す
     const channels = userSettings[userId] || [];
     res.json(channels);
 });
 
 /**
- * 2. 新しいチャンネルの追加（詳細なエラーハンドリング版）
+ * 2. 新しいチャンネルの追加
  */
 app.post('/api/channels', async (req, res) => {
     const { userId, channelId } = req.body;
     
-    // LINEのユーザー情報がない場合
     if (!userId) {
         return res.status(400).json({ code: 'LINE_USER_NOT_FOUND', error: 'LINEのユーザー情報が取得できませんでした。' });
     }
@@ -69,7 +121,6 @@ app.post('/api/channels', async (req, res) => {
     }
 
     try {
-        // 🌟 Discord Botを使って、本物のチャンネル情報を取得する
         const channel = await discordClient.channels.fetch(channelId);
         
         if (!channel) {
@@ -79,16 +130,13 @@ app.post('/api/channels', async (req, res) => {
         const channelName = channel.name;
         const serverName = channel.guild ? channel.guild.name : 'DM / 不明';
 
-        // ユーザーの保存枠がなければ作成
         if (!userSettings[userId]) userSettings[userId] = [];
 
-        // すでに登録済みかチェック
         const exists = userSettings[userId].some(ch => ch.id === channelId);
         if (exists) {
             return res.status(400).json({ error: 'このチャンネルはすでに登録されています' });
         }
 
-        // 新しい連携データをオブジェクトとして作成
         const newChannel = {
             id: channelId,
             name: channelName,
@@ -96,7 +144,6 @@ app.post('/api/channels', async (req, res) => {
             active: true
         };
 
-        // メモリに保存
         userSettings[userId].push(newChannel);
 
         console.log(`[連携成功] ユーザー: ${userId} -> ${serverName}(#${channelName})`);
@@ -105,11 +152,7 @@ app.post('/api/channels', async (req, res) => {
     } catch (error) {
         console.error('Discordチャンネル取得エラーの詳細:', error);
 
-        // 🌟 Discord APIの特定のエラーコードを判別
-        // 10003: Unknown Channel (IDがそもそも間違っている)
-        // 50001: Missing Access (Botがそのサーバーに参加していない、または権限がない)
         if (error.code === 50001 || error.status === 403) {
-            // あなたのBotの招待URL（URLは自動生成されますが、必要に応じて環境変数化してください）
             const botId = discordClient.user.id;
             const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${botId}&permissions=2048&scope=bot`;
             
@@ -124,7 +167,6 @@ app.post('/api/channels', async (req, res) => {
             return res.status(404).json({ code: 'FETCH_FAILED', error: '何らかのエラーで情報が取得できませんでした。（チャンネルが見つかりません）' });
         }
 
-        // その他のDiscord側システムエラー
         res.status(500).json({ code: 'DISCORD_INTERNAL_ERROR', error: 'Discord側でエラーが発生しました。' });
     }
 });
@@ -160,56 +202,31 @@ app.post('/api/channels/delete', (req, res) => {
 
 
 // ==========================================
-// 📨 メッセージ転送ロジック（旧コードの移植＆パワーアップ）
+// 🟪 Discord ➔ LINE の転送ロジック（完全復活！）
 // ==========================================
+discordClient.on('messageCreate', async (message) => {
+    // 送信者がBOT自身なら無視して無限ループを防ぐ
+    if (message.author.bot) return;
 
-// LINE ➔ Discord の転送
-app.post('/webhook', line.middleware(lineConfig), (req, res) => {
-    // 🌟 LINEの検証ボタン用：イベントが空っぽなら何もせず200を返す
-    if (!req.body.events || req.body.events.length === 0) {
-        return res.json({ status: 'ok' });
-    }
+    const channelId = message.channel.id;
+    const serverName = message.guild ? message.guild.name : 'プライベート';
+    const channelName = message.channel.name;
+    const authorName = message.author.username;
 
-    Promise.all(req.body.events.map(async (event) => {
-        if (event.type !== 'message' || event.message.type !== 'text') return null;
+    // 保存されているすべてのユーザー設定をループして、一致するチャンネルを探す
+    for (const userId in userSettings) {
+        const channels = userSettings[userId];
+        const isMatched = channels.some(ch => ch.id === channelId && ch.active);
 
-        const userId = event.source.userId;
-        const userMessage = event.message.text;
-
-        // 🌟 メッセージが空、または検証用のダミーデータなら処理をスキップ
-        if (!userMessage) return null;
-
-        let userName = 'LINEユーザー';
-        try {
-            const profile = await lineClient.getProfile(userId);
-            userName = profile.displayName;
-        } catch (e) { console.log('名前取得失敗'); }
-
-        const channels = userSettings[userId] || [];
-        const activeChannels = channels.filter(ch => ch.active);
-
-        if (activeChannels.length === 0) {
-            // 🌟 デフォルトのチャンネルIDがあり、メッセージが存在する場合のみ送る
-            if (process.env.DISCORD_CHANNEL_ID && userMessage) {
-                try {
-                    const defaultChannel = await discordClient.channels.fetch(process.env.DISCORD_CHANNEL_ID);
-                    if (defaultChannel) await defaultChannel.send(`🟩 **${userName}**: ${userMessage}`);
-                } catch (err) { console.log('デフォルト転送失敗'); }
-            }
-        } else {
-            for (const ch of activeChannels) {
-                try {
-                    const discordChannel = await discordClient.channels.fetch(ch.id);
-                    if (discordChannel) await discordChannel.send(`🟩 **${userName}**: ${userMessage}`);
-                } catch (err) { console.log(`チャンネル ${ch.id} への送信失敗`); }
+        if (isMatched) {
+            try {
+                const liffMessage = `🟢 ${serverName} - #${channelName}\n🟪 **${authorName}**: ${message.content}`;
+                await lineClient.pushMessage(userId, { type: 'text', text: liffMessage });
+            } catch (err) {
+                console.error('LINEへのプッシュ失敗:', err);
             }
         }
-    }))
-    .then(() => res.json({ status: 'ok' }))
-    .catch((err) => {
-        console.error('Webhook内部エラー:', err);
-        res.status(500).end();
-    });
+    }
 });
 
 
