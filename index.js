@@ -165,75 +165,51 @@ app.post('/api/channels/delete', (req, res) => {
 
 // LINE ➔ Discord の転送
 app.post('/webhook', line.middleware(lineConfig), (req, res) => {
+    // 🌟 LINEの検証ボタン用：イベントが空っぽなら何もせず200を返す
+    if (!req.body.events || req.body.events.length === 0) {
+        return res.json({ status: 'ok' });
+    }
+
     Promise.all(req.body.events.map(async (event) => {
         if (event.type !== 'message' || event.message.type !== 'text') return null;
 
         const userId = event.source.userId;
         const userMessage = event.message.text;
 
-        // LINEの名前取得
+        // 🌟 メッセージが空、または検証用のダミーデータなら処理をスキップ
+        if (!userMessage) return null;
+
         let userName = 'LINEユーザー';
         try {
             const profile = await lineClient.getProfile(userId);
             userName = profile.displayName;
         } catch (e) { console.log('名前取得失敗'); }
 
-        // 🌟 登録されている「アクティブなチャンネル」すべてにマルチキャスト（一斉送信）
         const channels = userSettings[userId] || [];
         const activeChannels = channels.filter(ch => ch.active);
 
         if (activeChannels.length === 0) {
-            // まだ何も登録されていない場合は、これまでのデフォルトチャンネル（環境変数）に送る（救済処置）
-            if (process.env.DISCORD_CHANNEL_ID) {
+            // 🌟 デフォルトのチャンネルIDがあり、メッセージが存在する場合のみ送る
+            if (process.env.DISCORD_CHANNEL_ID && userMessage) {
                 try {
                     const defaultChannel = await discordClient.channels.fetch(process.env.DISCORD_CHANNEL_ID);
                     if (defaultChannel) await defaultChannel.send(`🟩 **${userName}**: ${userMessage}`);
                 } catch (err) { console.log('デフォルト転送失敗'); }
             }
         } else {
-            // 登録されたすべての部屋に転送！
             for (const ch of activeChannels) {
                 try {
                     const discordChannel = await discordClient.channels.fetch(ch.id);
-                    if (discordChannel) {
-                        // ご要望の「[LINE]は無しで絵文字スッキリ」仕様！
-                        await discordChannel.send(`🟩 **${userName}**: ${userMessage}`);
-                    }
+                    if (discordChannel) await discordChannel.send(`🟩 **${userName}**: ${userMessage}`);
                 } catch (err) { console.log(`チャンネル ${ch.id} への送信失敗`); }
             }
         }
     }))
     .then(() => res.json({ status: 'ok' }))
     .catch((err) => {
-        console.error(err);
+        console.error('Webhook内部エラー:', err);
         res.status(500).end();
     });
-});
-
-// Discord ➔ LINE の転送
-discordClient.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-
-    const channelId = message.channel.id;
-    const serverName = message.guild ? message.guild.name : 'プライベート';
-    const channelName = message.channel.name;
-    const authorName = message.author.username;
-
-    // 🌟 このDiscordチャンネルIDを「アクティブ」として登録しているLINEユーザーをすべて探す
-    for (const userId in userSettings) {
-        const channels = userSettings[userId];
-        const isMatched = channels.some(ch => ch.id === channelId && ch.active);
-
-        if (isMatched) {
-            try {
-                // ご要望の「部屋名アナウンス＋[Discord]無しのスッキリ絵文字」仕様！
-                const liffMessage = `🟢 ${serverName} - #${channelName}\n🟪 **${authorName}**: ${message.content}`;
-                await lineClient.pushMessage(userId, { type: 'text', text: liffMessage });
-            } catch (err) {
-                console.error('LINEへのプッシュ失敗:', err);
-            }
-        }
-    }
 });
 
 
